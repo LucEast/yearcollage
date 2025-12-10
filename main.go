@@ -85,4 +85,58 @@ func main() {
 		}
 		fmt.Printf("  %s\n", p)
 	}
+
+	// --------------------------------------------------------------
+	// TODO (bauen wir in den nächsten Schritten):
+	// 1. tile-aspect parsen ("3:2" -> ratio 1.5)
+	// 2. Bilder einzeln laden, auf ratio croppen & resizen
+	// 3. Grid berechnen (rows = ceil(n / columns))
+	// 4. große Canvas erstellen
+	// 5. Bilder reinzeichnen
+	// 6. finale Collage speichern
+	// --------------------------------------------------------------
+
 }
+
+// collectImages() - durchsucht den Ordner rekursiv nach Bilddateien
+
+func collectImages(root string) ([]string, error) {
+	var images []string
+
+	// Liste erlaubter Endungen (alles in Kleinbuchstaben)
+	allowedExt := map[string]bool{
+		".jpg": true,
+		".jpeg": true,
+		".png": true,
+		".webp": true,
+	}
+
+	// WalkDir läuft den Ordner rekursiv durch
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			// z.B. Permission denied - einfach weiter machen
+			log.Printf("warnung: überspringt %q: %v", path, err)
+			return nil 
+		} 
+
+		// Ordner ignorieren
+		if d.IsDir() {
+			return nil
+		}
+
+		//Dateiendung checken
+		ext := strings.ToLower(filepath.Ext(d.Name()))
+		if allowedExt[ext] {
+			images = append(images, path)
+		}
+
+		return nil
+	})
+	
+	// Fehler des Walkers zurückgeben
+	if err != nil {
+		retrun nil, err
+	}
+	return images, nir
+}
+
