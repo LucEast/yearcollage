@@ -105,12 +105,12 @@ yearcollage \
 
 ## 📚 TODO / Next Steps
 
-* [ ] `tile-aspect` Parser implementieren
-* [ ] cropping-Funktion (`cropToAspect`)
-* [ ] resizing-Funktion
-* [ ] Canvas erstellen & Bilder zeichnen
-* [ ] Output speichern
-* [ ] optional: EXIF‑Date statt File‑Date nutzen
+* [x] `tile-aspect` Parser implementieren
+* [x] cropping-Funktion (`cropToAspect`)
+* [x] resizing-Funktion
+* [x] Canvas erstellen & Bilder zeichnen
+* [x] Output speichern
+* [x] optional: EXIF‑Date statt File‑Date nutzen
 * [ ] optional: Rand & Abstand zwischen Kacheln einführen
 * [ ] optional: Hintergrundfarbe wählbar machen
 
