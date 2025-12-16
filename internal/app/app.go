@@ -11,9 +11,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
+
+	"github.com/rwcarlsen/goexif/exif"
 
 	"github.com/luceast/yearcollage/internal/aspect"
 	"github.com/luceast/yearcollage/internal/collect"
@@ -43,32 +46,7 @@ func Run(cfg Config) error {
 		return fmt.Errorf("no images found in %q", cfg.InputDir)
 	}
 
-	// Sort by filesystem mod time (oldest first). Errors are logged but do not stop sorting.
-	sort.Slice(imagePaths, func(i, j int) bool {
-		infoI, errI := os.Stat(imagePaths[i])
-		if errI != nil {
-			log.Printf("warn: stat %q: %v", imagePaths[i], errI)
-			return false
-		}
-		infoJ, errJ := os.Stat(imagePaths[j])
-		if errJ != nil {
-			log.Printf("warn: stat %q: %v", imagePaths[j], errJ)
-			return true
-		}
-		return infoI.ModTime().Before(infoJ.ModTime())
-	})
-
-	// Parse target aspect ratio (e.g., "3:2" -> 1.5).
-	ratio, err := aspect.Parse(cfg.TileAspect)
-	if err != nil {
-		return fmt.Errorf("invalid tile-aspect %q: %w", cfg.TileAspect, err)
-	}
-
-	tileWidth := cfg.TileWidth
-	tileHeight := int(math.Round(float64(tileWidth) / ratio))
-	if tileHeight <= 0 {
-		return fmt.Errorf("computed tile height is non-positive; check tile-aspect %q", cfg.TileAspect)
-	}
+	imagePaths = sortImages(imagePaths, cfg.SortMode)
 
 	log.Printf("Found %d images in %s", len(imagePaths), cfg.InputDir)
 	for i, p := range imagePaths {
@@ -79,8 +57,38 @@ func Run(cfg Config) error {
 		log.Printf("  %s", p)
 	}
 
-	rows := (len(imagePaths) + cfg.Columns - 1) / cfg.Columns
-	canvasWidth := tileWidth * cfg.Columns
+	columns := cfg.Columns
+	var tileRatio float64
+
+	if cfg.CollageAspect != "" {
+		collageRatio, err := aspect.Parse(cfg.CollageAspect)
+		if err != nil {
+			return fmt.Errorf("invalid collage-aspect %q: %w", cfg.CollageAspect, err)
+		}
+		columns = pickColumnsForCollage(len(imagePaths), collageRatio)
+		if columns <= 0 {
+			return fmt.Errorf("computed columns is non-positive")
+		}
+		rows := (len(imagePaths) + columns - 1) / columns
+		tileRatio = collageRatio * float64(rows) / float64(columns)
+		log.Printf("Collage aspect %s -> columns=%d, rows=%d, tile-aspect=%.4f (tile-aspect flag ignored)", cfg.CollageAspect, columns, rows, tileRatio)
+	} else {
+		ratio, err := aspect.Parse(cfg.TileAspect)
+		if err != nil {
+			return fmt.Errorf("invalid tile-aspect %q: %w", cfg.TileAspect, err)
+		}
+		tileRatio = ratio
+		log.Printf("Tile aspect %s (from flag)", cfg.TileAspect)
+	}
+
+	tileWidth := cfg.TileWidth
+	tileHeight := int(math.Round(float64(tileWidth) / tileRatio))
+	if tileHeight <= 0 {
+		return fmt.Errorf("computed tile height is non-positive; check tile/collage aspect")
+	}
+
+	rows := (len(imagePaths) + columns - 1) / columns
+	canvasWidth := tileWidth * columns
 	canvasHeight := tileHeight * rows
 	canvas := image.NewRGBA(image.Rect(0, 0, canvasWidth, canvasHeight))
 
@@ -96,13 +104,13 @@ func Run(cfg Config) error {
 			return fmt.Errorf("decode image %q: %w", path, err)
 		}
 
-		cropped := cropToAspect(img, ratio)
+		cropped := cropToAspect(img, tileRatio)
 
 		dst := image.NewRGBA(image.Rect(0, 0, tileWidth, tileHeight))
 		draw.ApproxBiLinear.Scale(dst, dst.Bounds(), cropped, cropped.Bounds(), draw.Over, nil)
 
-		col := idx % cfg.Columns
-		row := idx / cfg.Columns
+		col := idx % columns
+		row := idx / columns
 		offset := image.Pt(col*tileWidth, row*tileHeight)
 		draw.Draw(canvas, image.Rectangle{Min: offset, Max: offset.Add(dst.Bounds().Size())}, dst, image.Point{}, draw.Src)
 	}
@@ -168,4 +176,142 @@ func saveImage(path string, img image.Image) error {
 		}
 	}
 	return nil
+}
+
+// pickColumnsForCollage picks a column count for a target collage aspect.
+// It prefers grids that keep the inferred tile aspect near 1:1 to minimize cropping.
+func pickColumnsForCollage(numImages int, targetCollageRatio float64) int {
+	if numImages <= 0 {
+		return 0
+	}
+
+	ideal := math.Sqrt(float64(numImages) * targetCollageRatio)
+	best := clampInt(int(math.Round(ideal)), 1, numImages)
+	bestScore := math.Abs(tileAspectFromGrid(numImages, best, targetCollageRatio) - 1.0)
+
+	for delta := -3; delta <= 3; delta++ {
+		c := clampInt(int(math.Round(ideal))+delta, 1, numImages)
+		score := math.Abs(tileAspectFromGrid(numImages, c, targetCollageRatio) - 1.0)
+		if score < bestScore || (score == bestScore && c < best) {
+			best = c
+			bestScore = score
+		}
+	}
+
+	return best
+}
+
+func tileAspectFromGrid(numImages, columns int, collageRatio float64) float64 {
+	rows := (numImages + columns - 1) / columns
+	return collageRatio * float64(rows) / float64(columns)
+}
+
+func clampInt(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+func sortImages(paths []string, mode string) []string {
+	switch mode {
+	case "", "time":
+		sort.Slice(paths, func(i, j int) bool {
+			infoI, errI := os.Stat(paths[i])
+			if errI != nil {
+				log.Printf("warn: stat %q: %v", paths[i], errI)
+				return false
+			}
+			infoJ, errJ := os.Stat(paths[j])
+			if errJ != nil {
+				log.Printf("warn: stat %q: %v", paths[j], errJ)
+				return true
+			}
+			return infoI.ModTime().Before(infoJ.ModTime())
+		})
+	case "name":
+		sort.Strings(paths)
+	case "exif":
+		type item struct {
+			path string
+			ts   time.Time
+		}
+		items := make([]item, 0, len(paths))
+		for _, p := range paths {
+			t := exifTime(p)
+			items = append(items, item{path: p, ts: t})
+		}
+		sort.Slice(items, func(i, j int) bool {
+			if items[i].ts.Equal(items[j].ts) {
+				return items[i].path < items[j].path
+			}
+			return items[i].ts.Before(items[j].ts)
+		})
+		paths = paths[:0]
+		for _, it := range items {
+			paths = append(paths, it.path)
+		}
+	default:
+		log.Printf("warn: unknown sort mode %q, falling back to time", mode)
+		return sortImages(paths, "time")
+	}
+	return paths
+}
+
+func exifTime(path string) time.Time {
+	f, err := os.Open(path)
+	if err != nil {
+		log.Printf("warn: open for exif %q: %v", path, err)
+		return modTimeOrZero(path)
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		return modTimeOrZero(path)
+	}
+
+	if tm, err := x.DateTime(); err == nil {
+		return tm
+	}
+	for _, tag := range []exif.FieldName{exif.DateTimeOriginal, exif.DateTimeDigitized} {
+		if field, err := x.Get(tag); err == nil {
+			if s, err := field.StringVal(); err == nil {
+				if tm, ok := parseExifTimeString(s); ok {
+					return tm
+				}
+			}
+		}
+	}
+	return modTimeOrZero(path)
+}
+
+func parseExifTimeString(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		"2006:01:02 15:04:05",
+		time.RFC3339,
+		time.RFC3339Nano,
+	}
+	for _, layout := range layouts {
+		if tm, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return tm, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func modTimeOrZero(path string) time.Time {
+	info, err := os.Stat(path)
+	if err != nil {
+		log.Printf("warn: stat %q: %v", path, err)
+		return time.Time{}
+	}
+	return info.ModTime()
 }

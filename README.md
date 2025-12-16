@@ -47,22 +47,27 @@ yearcollage -input ./bilder
 
 ```bash
 yearcollage \
-  -input ./bilder/2025 \
-  -output collage-2025.jpg \
-  -tile-aspect 3:2 \
-  -tile-width 400 \
-  -columns 20
+  -input ./bilder/2025 \   # Kurzform: -i
+  -output collage-2025.jpg \ # Kurzform: -o
+  -tile-aspect 3:2 \       # Kurzform: -a (wird ignoriert, wenn -collage-aspect gesetzt ist)
+  -tile-width 400 \        # Kurzform: -w
+  -columns 20              # Kurzform: -c (oder -collage-aspect 16:9 für Auto-Berechnung)
+  -sort time               # Kurzform: -s (time | name)
 ```
 
 ### Parameter
 
-| Flag           | Beschreibung                                         |
-| -------------- | ---------------------------------------------------- |
-| `-input`       | Pfad zum Bilder-Ordner (**required**)                |
-| `-output`      | Zieldatei für die Collage (default: `collage.jpg`)   |
-| `-tile-aspect` | Seitenverhältnis für jedes Bild (z. B. `1:1`, `3:2`) |
-| `-tile-width`  | Breite jedes einzelnen Bildes im Grid                |
-| `-columns`     | Anzahl der Spalten im finalen Grid                   |
+| Flag (long/short) | Beschreibung                                         |
+| ----------------- | ---------------------------------------------------- |
+| `-input`, `-i`    | Pfad zum Bilder-Ordner (**required**)                |
+| `-output`, `-o`   | Zieldatei für die Collage (default: `collage.jpg`)   |
+| `-tile-aspect`, `-a` | Seitenverhältnis für jedes Bild (z. B. `1:1`, `3:2`) – wird ignoriert, wenn `-collage-aspect` genutzt wird |
+| `-tile-width`, `-w`  | Breite jedes einzelnen Bildes im Grid                |
+| `-columns`, `-c`     | Anzahl der Spalten im finalen Grid (ignoriert, wenn `-collage-aspect` gesetzt ist) |
+| `-collage-aspect`, `-r` | Ziel-Seitenverhältnis der gesamten Collage; Spalten & Kachel-Seitenverhältnis werden automatisch berechnet |
+| `-sort`, `-s`        | Sortierung der Bilder: `time` (Datei-Modtime, älteste zuerst), `name` (alphabetisch) oder `exif` (EXIF DateTime\*) |
+
+\* Bei `-sort exif` wird auf EXIF-Tags (DateTimeOriginal/DateTimeDigitized/DateTime) zurückgegriffen, andernfalls auf Dateizeit.
 
 ---
 

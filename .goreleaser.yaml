@@ -1,0 +1,31 @@
+project_name: yearcollage
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: yearcollage
+    main: ./cmd/yearcollage
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - builds:
+      - yearcollage
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  skip: true
