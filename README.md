@@ -1,131 +1,68 @@
-# 📸 YearCollage – Create Large Image Collages Automatically
+# YearCollage CLI
 
-**YearCollage** ist ein Go‑basiertes CLI-Tool, mit dem du automatisch große Collagen aus Bildern generieren kannst – perfekt für **Jahresrückblicke**, **Poster**, **Fotowände** oder Social-Media-Projekte.
+<p align="center">
+  <a href="https://github.com/LucEast/obsidian-current-view/releases">
+    <img src="https://img.shields.io/github/v/release/LucEast/yearcollage?style=for-the-badge&label=latest&labelColor=363a4f&color=B4BEFE&logo=github&logoColor=cad3f5" alt="GitHub Release" />
+  </a>
+  <a href="https://github.com/LucEast/obsidian-current-view/releases">
+    <img src="https://img.shields.io/github/downloads/LucEast/yearcollage/total?style=for-the-badge&label=downloads&labelColor=363a4f&color=F9E2AF&logo=abdownloadmanager&logoColor=cad3f5" alt="Downloads" />
+  </a>
+  <a href="https://github.com/LucEast/obsidian-current-view/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/LucEast/yearcollage/semantic-release.yml?branch=main&style=for-the-badge&label=CI&labelColor=363a4f&color=A6E3A1&logo=githubactions&logoColor=cad3f5" alt="CI Status" />
+  </a>
+  <a href="https://github.com/LucEast/obsidian-current-view/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/LucEast/yearcollage?style=for-the-badge&labelColor=363a4f&color=FAB387&logo=open-source-initiative&logoColor=cad3f5" alt="License" />
+  </a>
+</p>
 
-Das Tool:
+English | [Deutsch](README.de.md)
 
-* liest alle Bilder aus einem Ordner (rekursiv),
-* sortiert sie **chronologisch nach Aufnahmedatum**,
-* passt jedes Bild auf ein einheitliches Seitenverhältnis an (Cropping),
-* ordnet alle Bilder als Grid an (links → rechts, oben → unten),
-* erzeugt am Ende eine Collage als JPEG/PNG.
+YearCollage is a Go CLI that turns a folder of photos into a single collage image. Images are collected recursively, sorted, cropped to a common aspect, scaled, and laid out in a grid.
 
----
+## Install
+- Go 1.20+ recommended
+- Build: `go build -o yearcollage .`
+- Run without building: `go run . -input ./photos -output collage.jpg`
 
-## 🚀 Features
-
-* 📁 **Ordner einlesen** (inkl. Unterordner)
-* 🕒 **Sortierung nach Dateidatum** (älteste zuerst)
-* 🖼️ **Resize & Crop** auf festes Seitenverhältnis (z. B. 1:1, 3:2, 4:3)
-* 🧱 **Grid-Platzierung** nach Spalten & Reihen
-* 🖼️ **Output als Bilddatei** (z. B. `collage.jpg`)
-* ⚙️ **Konfigurierbar über Flags**
-
----
-
-## 📦 Installation
-
-Du brauchst Go (Version 1.20 oder neuer).
-
+## Quickstart
 ```bash
-git clone https://github.com/luceast/yearcollage
-cd yearcollage
-go build -o yearcollage
+yearcollage -input ./bilder -output collage.jpg
 ```
+The collage is written where you run the command unless you give an absolute or different relative `-output` path.
 
----
+## Flags
+| Flag (short) | Default | Description |
+| --- | --- | --- |
+| `-input`, `-i` | _required_ | Directory to scan for images (recursive). |
+| `-output`, `-o` | `collage.jpg` | Output file path (extension controls JPEG/PNG). |
+| `-tile-aspect`, `-a` | `1:1` | Aspect ratio for each tile (ignored if `-collage-aspect` is set). |
+| `-tile-width`, `-w` | `400` | Tile width in pixels. Height is derived from aspect. |
+| `-columns`, `-c` | `20` | Columns in the grid (ignored if `-collage-aspect` is set). |
+| `-collage-aspect`, `-r` | _empty_ | Target aspect ratio for the whole collage; auto-picks columns and tile aspect. |
+| `-sort`, `-s` | `time` | Sort mode: `time` (file mod time), `name` (alphabetical), `exif` (EXIF DateTime*). |
 
-## 🛠️ Usage
+\* For `-sort exif`, EXIF DateTimeOriginal/DateTimeDigitized/DateTime are tried; falls back to file mod time if missing.
 
-### Minimal
+Supported inputs: `.jpg`, `.jpeg`, `.png`, `.webp`.
 
-```bash
-yearcollage -input ./bilder
+## Examples
+- Fixed grid: `yearcollage -i ./bilder/2025 -o collage-2025.jpg -c 18 -w 360 -a 3:2`
+- Auto columns by collage ratio: `yearcollage -i ./bilder/urlaub -o collage-urlaub.png -collage-aspect 16:9 -w 320`
+- EXIF chronological: `yearcollage -i ./bilder -sort exif`
+
+## Notes
+- If you set `-collage-aspect`, the provided `-tile-aspect` is ignored; a tile aspect is derived to fit the target collage ratio.
+- Images are laid out left→right, top→bottom.
+- Output format: PNG if `-output` ends with `.png`, otherwise JPEG (quality 90).
+
+## Development
+- Format: `gofmt -w .`
+- Lint: `go vet ./...`
+- Tests: `go test ./...`
+- Build: `go build -o yearcollage .`
+
+## Translations
+The default README is English. Add a translated copy like `README.de.md` and link it near the top, e.g.:
 ```
-
-### Voller Befehl
-
-```bash
-yearcollage \
-  -input ./bilder/2025 \   # Kurzform: -i
-  -output collage-2025.jpg \ # Kurzform: -o
-  -tile-aspect 3:2 \       # Kurzform: -a (wird ignoriert, wenn -collage-aspect gesetzt ist)
-  -tile-width 400 \        # Kurzform: -w
-  -columns 20              # Kurzform: -c (oder -collage-aspect 16:9 für Auto-Berechnung)
-  -sort time               # Kurzform: -s (time | name)
+English | [Deutsch](README.de.md)
 ```
-
-### Parameter
-
-| Flag (long/short) | Beschreibung                                         |
-| ----------------- | ---------------------------------------------------- |
-| `-input`, `-i`    | Pfad zum Bilder-Ordner (**required**)                |
-| `-output`, `-o`   | Zieldatei für die Collage (default: `collage.jpg`)   |
-| `-tile-aspect`, `-a` | Seitenverhältnis für jedes Bild (z. B. `1:1`, `3:2`) – wird ignoriert, wenn `-collage-aspect` genutzt wird |
-| `-tile-width`, `-w`  | Breite jedes einzelnen Bildes im Grid                |
-| `-columns`, `-c`     | Anzahl der Spalten im finalen Grid (ignoriert, wenn `-collage-aspect` gesetzt ist) |
-| `-collage-aspect`, `-r` | Ziel-Seitenverhältnis der gesamten Collage; Spalten & Kachel-Seitenverhältnis werden automatisch berechnet |
-| `-sort`, `-s`        | Sortierung der Bilder: `time` (Datei-Modtime, älteste zuerst), `name` (alphabetisch) oder `exif` (EXIF DateTime\*) |
-
-\* Bei `-sort exif` wird auf EXIF-Tags (DateTimeOriginal/DateTimeDigitized/DateTime) zurückgegriffen, andernfalls auf Dateizeit.
-
----
-
-## 🧠 Internes Funktionsprinzip
-
-1. **Bilder finden:**
-
-   * alle Dateien im Ordner sammeln
-   * Endungen filtern (`jpg`, `jpeg`, `png`, `webp`)
-
-2. **Nach Datum sortieren:**
-
-   * kleinster Zeitstempel → erstes Bild
-   * Ergebnis: Collage verläuft chronologisch
-
-3. **Bilder verarbeiten:**
-
-   * laden
-   * auf Seitenverhältnis croppen
-   * auf feste Breite skalieren
-
-4. **Canvas erzeugen:**
-
-   * Gesamtbreite = `columns * tileWidth`
-   * Höhe ergibt sich dynamisch aus Anzahl der Bilder
-
-5. **Bilder platzieren:**
-
-   * Zeile für Zeile
-   * Pixelgenau
-
-6. **Als JPEG/PNG speichern**
-
----
-
-## 📚 TODO / Next Steps
-
-* [x] `tile-aspect` Parser implementieren
-* [x] cropping-Funktion (`cropToAspect`)
-* [x] resizing-Funktion
-* [x] Canvas erstellen & Bilder zeichnen
-* [x] Output speichern
-* [x] optional: EXIF‑Date statt File‑Date nutzen
-* [ ] optional: Rand & Abstand zwischen Kacheln einführen
-* [ ] optional: Hintergrundfarbe wählbar machen
-
----
-
-## 🤝 Contribution
-
-PRs sind jederzeit willkommen – besonders beim Bild-Processing und bei Optimierungen für Performance.
-
----
-
-## 📄 License
-
-MIT License
-
----
-
-Wenn du möchtest, können wir als Nächstes die README weiter strukturieren, Diagramme einbauen oder eine richtige Projektstruktur (`cmd/`, `pkg/`, `internal/`) anlegen. 😊
