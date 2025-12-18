@@ -12,6 +12,8 @@ import (
 )
 
 func TestConfigValidate(t *testing.T) {
+	// Validate should reject missing/invalid combinations but accept either
+	// explicit columns or collage-aspect input.
 	cases := []struct {
 		name    string
 		cfg     Config
@@ -58,6 +60,7 @@ func TestConfigValidate(t *testing.T) {
 }
 
 func TestPickColumnsForCollage(t *testing.T) {
+	// The heuristic aims for balanced grids; spot-check a few shapes.
 	cases := []struct {
 		name   string
 		n      int
@@ -122,6 +125,7 @@ func TestRunWithCollageAspectOverridesTileAspect(t *testing.T) {
 	}
 }
 
+// writeSolidPNG creates a solid color PNG for quick test fixtures.
 func writeSolidPNG(path string, w, h int, c color.Color) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

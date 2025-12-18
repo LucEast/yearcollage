@@ -23,6 +23,8 @@ import (
 )
 
 // Run orchestrates the YearCollage workflow (collect → sort → process → compose).
+// It validates the config, gathers all supported images, resizes/crops them to
+// the requested aspect ratio, and finally writes the collage to disk.
 func Run(cfg Config) error {
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -65,6 +67,8 @@ func Run(cfg Config) error {
 		if err != nil {
 			return fmt.Errorf("invalid collage-aspect %q: %w", cfg.CollageAspect, err)
 		}
+		// When a collage aspect is provided we compute a column count that best
+		// matches the overall shape and derive the tile aspect from it.
 		columns = pickColumnsForCollage(len(imagePaths), collageRatio)
 		if columns <= 0 {
 			return fmt.Errorf("computed columns is non-positive")
@@ -82,6 +86,8 @@ func Run(cfg Config) error {
 	}
 
 	tileWidth := cfg.TileWidth
+	// Scale tile height from width so we always respect the intended ratio,
+	// even when tileRatio came from collage-aspect inference.
 	tileHeight := int(math.Round(float64(tileWidth) / tileRatio))
 	if tileHeight <= 0 {
 		return fmt.Errorf("computed tile height is non-positive; check tile/collage aspect")
@@ -104,6 +110,7 @@ func Run(cfg Config) error {
 			return fmt.Errorf("decode image %q: %w", path, err)
 		}
 
+		// Trim the photo so it fits the target aspect without stretching.
 		cropped := cropToAspect(img, tileRatio)
 
 		dst := image.NewRGBA(image.Rect(0, 0, tileWidth, tileHeight))
@@ -123,6 +130,8 @@ func Run(cfg Config) error {
 	return nil
 }
 
+// cropToAspect returns a view of the image cropped to the target aspect ratio,
+// preferring center crops so the main subject is likely preserved.
 func cropToAspect(img image.Image, target float64) image.Image {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
@@ -157,6 +166,7 @@ func cropToAspect(img image.Image, target float64) image.Image {
 	return dst
 }
 
+// saveImage picks an encoder based on the output extension and writes the image.
 func saveImage(path string, img image.Image) error {
 	out, err := os.Create(path)
 	if err != nil {
@@ -201,11 +211,13 @@ func pickColumnsForCollage(numImages int, targetCollageRatio float64) int {
 	return best
 }
 
+// tileAspectFromGrid derives the tile aspect ratio implied by a collage grid.
 func tileAspectFromGrid(numImages, columns int, collageRatio float64) float64 {
 	rows := (numImages + columns - 1) / columns
 	return collageRatio * float64(rows) / float64(columns)
 }
 
+// clampInt bounds v to [min, max].
 func clampInt(v, min, max int) int {
 	if v < min {
 		return min
@@ -216,6 +228,7 @@ func clampInt(v, min, max int) int {
 	return v
 }
 
+// sortImages orders image paths according to the chosen sort mode.
 func sortImages(paths []string, mode string) []string {
 	switch mode {
 	case "", "time":
@@ -261,6 +274,7 @@ func sortImages(paths []string, mode string) []string {
 	return paths
 }
 
+// exifTime extracts the best-effort EXIF timestamp, falling back to modtime.
 func exifTime(path string) time.Time {
 	f, err := os.Open(path)
 	if err != nil {
@@ -289,6 +303,7 @@ func exifTime(path string) time.Time {
 	return modTimeOrZero(path)
 }
 
+// parseExifTimeString handles a handful of timestamp formats commonly seen in EXIF.
 func parseExifTimeString(s string) (time.Time, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -307,6 +322,7 @@ func parseExifTimeString(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+// modTimeOrZero reports file modification time or zero on error, logging the issue.
 func modTimeOrZero(path string) time.Time {
 	info, err := os.Stat(path)
 	if err != nil {
