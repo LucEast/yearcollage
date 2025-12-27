@@ -29,3 +29,4 @@ go.work
 AGENTS.md
 collage.jpg
 bin/
+.DS_Store

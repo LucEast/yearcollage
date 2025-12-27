@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -104,11 +105,21 @@ func Run(cfg Config) error {
 			return fmt.Errorf("open image %q: %w", path, err)
 		}
 
+		// Read the orientation before decoding so we can rewind and reuse the
+		// same file handle for the actual pixel data.
+		orientation := imageOrientation(f)
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			_ = f.Close()
+			return fmt.Errorf("rewind image %q: %w", path, err)
+		}
+
 		img, _, err := image.Decode(f)
 		_ = f.Close()
 		if err != nil {
 			return fmt.Errorf("decode image %q: %w", path, err)
 		}
+
+		img = normalizeOrientation(img, orientation)
 
 		// Trim the photo so it fits the target aspect without stretching.
 		cropped := cropToAspect(img, tileRatio)
@@ -272,6 +283,35 @@ func sortImages(paths []string, mode string) []string {
 		return sortImages(paths, "time")
 	}
 	return paths
+}
+
+// imageOrientation extracts the EXIF orientation flag and returns a value between
+// 1 and 8 (per the TIFF/EXIF spec). When the file has no EXIF block or the tag
+// is missing we default to 1 (top-left).
+func imageOrientation(rs io.ReadSeeker) int {
+	if rs == nil {
+		return 1
+	}
+	if _, err := rs.Seek(0, io.SeekStart); err != nil {
+		return 1
+	}
+	x, err := exif.Decode(rs)
+	if err != nil {
+		return 1
+	}
+	field, err := x.Get(exif.Orientation)
+	if err != nil {
+		return 1
+	}
+	val, err := field.Int(0)
+	if err != nil {
+		return 1
+	}
+	orientation := int(val)
+	if orientation < 1 || orientation > 8 {
+		return 1
+	}
+	return orientation
 }
 
 // exifTime extracts the best-effort EXIF timestamp, falling back to modtime.
