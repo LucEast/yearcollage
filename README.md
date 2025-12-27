@@ -1,16 +1,16 @@
 # YearCollage CLI
 
 <p align="center">
-  <a href="https://github.com/LucEast/obsidian-current-view/releases">
+  <a href="https://github.com/LucEast/yearcollage/releases">
     <img src="https://img.shields.io/github/v/release/LucEast/yearcollage?style=for-the-badge&label=latest&labelColor=363a4f&color=B4BEFE&logo=github&logoColor=cad3f5" alt="GitHub Release" />
   </a>
-  <a href="https://github.com/LucEast/obsidian-current-view/releases">
+  <a href="https://github.com/LucEast/yearcollage/releases">
     <img src="https://img.shields.io/github/downloads/LucEast/yearcollage/total?style=for-the-badge&label=downloads&labelColor=363a4f&color=F9E2AF&logo=abdownloadmanager&logoColor=cad3f5" alt="Downloads" />
   </a>
-  <a href="https://github.com/LucEast/obsidian-current-view/actions">
+  <a href="https://github.com/LucEast/yearcollage/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/LucEast/yearcollage/semantic-release.yml?branch=main&style=for-the-badge&label=CI&labelColor=363a4f&color=A6E3A1&logo=githubactions&logoColor=cad3f5" alt="CI Status" />
   </a>
-  <a href="https://github.com/LucEast/obsidian-current-view/blob/main/LICENSE">
+  <a href="https://github.com/LucEast/yearcollage/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/LucEast/yearcollage?style=for-the-badge&labelColor=363a4f&color=FAB387&logo=open-source-initiative&logoColor=cad3f5" alt="License" />
   </a>
 </p>
